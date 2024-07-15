@@ -1,45 +1,107 @@
-use std::io::{stdout, Result};
+use std::io;
 
 use ratatui::{
-    backend::CrosstermBackend,
-    crossterm::{
-        event::{self, KeyCode, KeyEventKind},
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-        ExecutableCommand,
-    },
+    buffer::Buffer,
+    crossterm::event::{self, KeyCode, KeyEventKind},
+    layout::{Alignment, Rect},
     style::Stylize,
-    widgets::Paragraph,
-    Terminal,
+    symbols::border,
+    text::Text,
+    widgets::{block::Title, Block, Paragraph, Widget},
+    Frame,
 };
 
+mod life;
+mod tui;
 
-fn main() -> Result<()>{
-    stdout().execute(EnterAlternateScreen)?;
-    enable_raw_mode()?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    terminal.clear()?;
+pub struct App {
+    board: life::Board,
+    exit: bool,
+}
 
-    loop {
-        terminal.draw(|frame| {
-            let area = frame.size();
-            frame.render_widget(
-                Paragraph::new("Hello Ratatui! (press 'q' to quit)")
-                    .white()
-                    .on_blue(),
-                area,
-            );
-        })?;
+impl Widget for &App {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let title = Title::from(" Tutorial App ".bold());
+        let block = Block::bordered()
+            .title(title.alignment(Alignment::Center))
+            .border_set(border::THICK);
+        let contents: Text = self.board.to_string().into();
+        Paragraph::new(contents)
+            .centered()
+            .block(block)
+            .render(area, buf);
+    }
+}
 
-        if event::poll(std::time::Duration::from_millis(16))? {
-            if let event::Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
-                    break;
-                }
+impl App {
+    pub fn run(&mut self, terminal: &mut tui::Tui) -> io::Result<()> {
+        while !self.exit {
+            terminal.draw(|frame| self.render_frame(frame))?;
+            self.handle_events()?;
+        }
+        Ok(())
+    }
+
+    pub fn render_frame(&self, frame: &mut Frame) {
+        frame.render_widget(self, frame.size());
+    }
+
+    fn handle_events(&mut self) -> io::Result<()> {
+        if let event::Event::Key(key_event) = event::read()? {
+            if key_event.kind == KeyEventKind::Press {
+                self.handle_key_event(key_event)
             }
+        };
+        Ok(())
+    }
+
+    fn handle_key_event(&mut self, key_event: event::KeyEvent) {
+        match key_event.code {
+            KeyCode::Char('q') => self.exit(),
+            _ => {}
         }
     }
 
-    stdout().execute(LeaveAlternateScreen)?;
-    disable_raw_mode()?;
-    Ok(())
+    fn exit(&mut self) {
+        self.exit = true;
+    }
+
+    fn default() -> App {
+        let default_starting_board = life::Board::new(20, 10);
+        App {
+            board: default_starting_board,
+            exit: false,
+        }
+    }
+}
+
+fn main() -> io::Result<()> {
+    let mut starting_board = life::Board::new(38, 21);
+    starting_board.set(0, 3, life::Cell::Alive);
+    starting_board.set(2, 4, life::Cell::Alive);
+    starting_board.set(1, 5, life::Cell::Alive);
+    starting_board.set(3, 3, life::Cell::Alive);
+
+    let mut terminal = tui::init()?;
+    let app_result = App {
+        board: starting_board,
+        exit: false,
+    }
+    .run(&mut terminal);
+    tui::restore()?;
+    app_result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn handle_key_event() -> io::Result<()> {
+        let mut app = App::default();
+        app.handle_key_event(KeyCode::Char('q').into());
+        assert_eq!(app.exit, true);
+
+        Ok(())
+    }
 }
