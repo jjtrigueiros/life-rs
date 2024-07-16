@@ -58,6 +58,7 @@ impl App {
     fn handle_key_event(&mut self, key_event: event::KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit(),
+            KeyCode::Char('a') => self.board.get_next_state(),
             _ => {}
         }
     }
@@ -69,19 +70,26 @@ impl App {
     fn default() -> App {
         let default_starting_board = life::Board::new(20, 10);
         App {
-            board: default_starting_board,
+            board: default_starting_board.unwrap(),
             exit: false,
         }
     }
 }
 
 fn main() -> io::Result<()> {
-    let mut starting_board = life::Board::new(38, 21);
-    starting_board.set(0, 3, life::Cell::Alive);
-    starting_board.set(2, 4, life::Cell::Alive);
-    starting_board.set(1, 5, life::Cell::Alive);
-    starting_board.set(3, 3, life::Cell::Alive);
-
+    let mut starting_board = life::Board::new(38, 22).unwrap();
+    starting_board.set(7, 7, life::Cell::Alive);
+    starting_board.set(7, 8, life::Cell::Alive);
+    starting_board.set(7, 10, life::Cell::Alive);
+    starting_board.set(7, 11, life::Cell::Alive);
+    starting_board.set(7, 12, life::Cell::Alive);
+    starting_board.set(7, 13, life::Cell::Alive);
+    starting_board.set(7, 15, life::Cell::Alive);
+    starting_board.set(7, 16, life::Cell::Alive);
+    starting_board.set(6, 9, life::Cell::Alive);
+    starting_board.set(8, 9, life::Cell::Alive);
+    starting_board.set(6, 14, life::Cell::Alive);
+    starting_board.set(8, 14, life::Cell::Alive);
     let mut terminal = tui::init()?;
     let app_result = App {
         board: starting_board,
